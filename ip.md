@@ -13,7 +13,10 @@ local_ip_v4 是 freeswitch 自动检测的，无法指定。
 ```
 
 ```xml
+<!-- 添加 -->
 <X-PRE-PROCESS cmd="set" data="erlang_bind_ip=10.0.2.1"/>
+
+<!-- 搜索替换 -->
 <X-PRE-PROCESS cmd="set" data="domain=$${erlang_bind_ip}"/>
 ```
 
