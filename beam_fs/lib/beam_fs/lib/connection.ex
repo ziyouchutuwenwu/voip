@@ -9,8 +9,8 @@ defmodule BeamFs.Lib.Connection do
             reconnect_timers: %{},
             reconnect_intervals: %{}
 
-  def start_link(opts) do
-    pid = spawn_link(fn -> init(opts) end)
+  def start_link([]) do
+    pid = spawn_link(fn -> init() end)
     Process.register(pid, __MODULE__)
     {:ok, pid}
   end
@@ -47,7 +47,7 @@ defmodule BeamFs.Lib.Connection do
     end
   end
 
-  defp init(_opts) do
+  defp init() do
     Process.flag(:trap_exit, true)
 
     config =

@@ -21,7 +21,7 @@ defmodule BeamFs.MixProject do
   defp deps do
     [
       {:xml_builder, "~> 2.1"},
-      {:horde, "~> 0.4"},
+      {:highlander, "~> 0.2.1"},
       {:jason, "~> 1.4"}
     ]
   end

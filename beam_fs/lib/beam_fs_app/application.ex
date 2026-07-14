@@ -3,33 +3,11 @@ defmodule BeamFsApp.Application do
 
   @impl true
   def start(_type, _args) do
-    children =
-      [
-        {BeamFs.Lib.Connection.Supervisor, []}
-      ] ++ horde_children()
+    children = [
+      {Highlander, BeamFs.Lib.Connection.Supervisor},
+    ]
 
-    opts = [strategy: :one_for_one, name: BeamFs.Supervisor]
-    {:ok, sup} = Supervisor.start_link(children, opts)
-
-    if clustered?() do
-      BeamFs.Horde.Coordinator.start()
-    end
-
-    {:ok, sup}
-  end
-
-  defp horde_children do
-    if clustered?() do
-      [
-        {BeamFs.Horde.Registry, []},
-        {BeamFs.Horde.Supervisor, []}
-      ]
-    else
-      []
-    end
-  end
-
-  defp clustered? do
-    node() != :nonode@nohost
+    opts = [strategy: :one_for_one, name: Demo.Supervisor]
+    Supervisor.start_link(children, opts)
   end
 end
