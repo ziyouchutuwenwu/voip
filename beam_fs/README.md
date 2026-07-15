@@ -15,9 +15,9 @@ id 要和 username 对应
 
 ```sh
 pjsua --local-port=6000 \
-  --id sip:1000@10.0.2.1 \
-  --registrar sip:10.0.2.1:5060 \
-  --realm 10.0.2.1 --username 1000 --password 123456 \
+  --id sip:1000@10.0.2.222 \
+  --registrar sip:10.0.2.222:5060 \
+  --realm 10.0.2.222 --username 1000 --password 123456 \
   --auto-answer 200 \
   --null-audio
 ```
@@ -29,7 +29,7 @@ pjsua --local-port=6000 \
 pjsua
 # 在 1000 里：
 # 给 1001 打电话
-按 m, 输入 sip:1001@10.0.2.1
+按 m, 输入 sip:1001@10.0.2.222
 # 挂断
 按 h
 ```
