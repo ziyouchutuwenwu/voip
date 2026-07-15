@@ -3,7 +3,7 @@ defmodule BeamFs.Events.Directory.Handler do
   alias BeamFs.Events.Directory.Xml
   alias BeamFs.SipUser
 
-  def fetch(tag, _key, value) when tag in ~w(domain) do
+  def fetch(tag, _key, value, _params) when tag in ~w(domain) do
     domain = value
     users = SipUser.list_all()
     result = Xml.domain(domain, users)
@@ -11,7 +11,7 @@ defmodule BeamFs.Events.Directory.Handler do
     result
   end
 
-  def fetch(tag, key, value) do
+  def fetch(tag, key, value, _params) do
     Logger.info("directory fetch: tag=#{inspect(tag)} key=#{inspect(key)} value=#{inspect(value)}")
     user = SipUser.find_by_username(value)
 

@@ -23,7 +23,7 @@ defmodule BeamFs.Debug do
 
     # 4. test directory fetch
     IO.puts("\n4. test directory fetch for '1000':")
-    result = BeamFs.Events.Directory.Handler.fetch(:id, :"caller-id-number", "1000")
+    result = BeamFs.Events.Directory.Handler.fetch(:id, :"caller-id-number", "1000", [])
 
     if result == "" do
       IO.puts("   RESULT: empty - user NOT found!")

@@ -1,7 +1,6 @@
 defmodule BeamFs.Lib.Connection do
   require Logger
 
-  @config_key :freeswitch
   @max_reconnect_interval 60_000
 
   defstruct nodes: [],
@@ -9,7 +8,7 @@ defmodule BeamFs.Lib.Connection do
             reconnect_timers: %{},
             reconnect_intervals: %{}
 
-  def start_link([]) do
+  def start_link() do
     pid = spawn_link(fn -> init() end)
     Process.register(pid, __MODULE__)
     {:ok, pid}
@@ -50,23 +49,14 @@ defmodule BeamFs.Lib.Connection do
   defp init() do
     Process.flag(:trap_exit, true)
 
-    config =
-      Application.get_env(:beam_fs, @config_key) || raise "missing config :beam_fs, :freeswitch"
-
-    nodes = config[:nodes] || raise "missing :nodes in freeswitch config"
+    %{nodes: nodes, cookie: cookie} = BeamFs.Config.Fetcher.fs_nodes()
 
     intervals = Map.new(nodes, fn n -> {n, 5_000} end)
     state = %__MODULE__{nodes: nodes, reconnect_intervals: intervals}
 
-    if node() == :nonode@nohost do
-      Logger.warning("not in a distributed node, skipping freeswitch connection")
-      loop(state)
-    else
-      cookie = String.to_atom(config[:cookie] || raise("missing :cookie in freeswitch config"))
-      :erlang.set_cookie(node(), cookie)
-      Enum.each(nodes, fn n -> send(self(), {:connect, n}) end)
-      loop(state)
-    end
+    :erlang.set_cookie(node(), cookie)
+    Enum.each(nodes, fn n -> send(self(), {:connect, n}) end)
+    loop(state)
   end
 
   defp loop(state) do
@@ -109,12 +99,15 @@ defmodule BeamFs.Lib.Connection do
         spawn(fn -> BeamFs.Lib.Event.handle(msg) end)
         loop(state)
 
-      {:fetch, section, tag, key, value, uuid, _params} ->
+      {:fetch, section, tag, key, value, uuid, params} ->
         Logger.info(
-          "incoming fetch: section=#{inspect(section)} tag=#{inspect(tag)} key=#{inspect(key)} value=#{inspect(value)} uuid=#{inspect(uuid)}"
+          "incoming fetch: section=#{inspect(section)} tag=#{inspect(tag)} key=#{inspect(key)} value=#{inspect(value)} uuid=#{inspect(uuid)} params=#{inspect(params)}"
         )
 
-        spawn(fn -> BeamFs.Lib.FetchHandler.handle(section, tag, key, value, uuid) end)
+        spawn(fn ->
+          BeamFs.Lib.XmlFetcher.handle(section, tag, key, value, uuid, params)
+        end)
+
         loop(state)
 
       {:ok, _job_uuid} ->

@@ -1,4 +1,4 @@
-defmodule BeamFs.Lib.FetchHandler do
+defmodule BeamFs.Lib.XmlFetcher do
   require Logger
 
   @handlers %{
@@ -6,7 +6,7 @@ defmodule BeamFs.Lib.FetchHandler do
     directory: BeamFs.Events.Directory.Handler
   }
 
-  def handle(section, tag, key, value, uuid) do
+  def handle(section, tag, key, value, uuid, params \\ []) do
     section_atom = if is_atom(section), do: section, else: String.to_atom(section)
 
     result =
@@ -15,7 +15,7 @@ defmodule BeamFs.Lib.FetchHandler do
           ""
 
         mod ->
-          apply(mod, :fetch, [tag, key, value])
+          apply(mod, :fetch, [tag, key, value, params])
       end
 
     BeamFs.Lib.Connection.fetch_reply(uuid, result)

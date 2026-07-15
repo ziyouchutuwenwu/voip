@@ -1,8 +1,16 @@
 defmodule BeamFs.Events.Dialplan.Handler do
   import XmlBuilder
 
-  def fetch(_tag, _key, value) do
-    dialplan_for(value)
+  def fetch(_tag, _key, _value, params) do
+    dest = get_param(params, "Caller-Destination-Number")
+    dialplan_for(dest)
+  end
+
+  defp get_param(params, key) do
+    case List.keyfind(params, key, 0) do
+      {^key, val} -> to_string(val)
+      nil -> ""
+    end
   end
 
   defp dialplan_for(exten) when is_binary(exten) do
