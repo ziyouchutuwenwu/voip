@@ -8,8 +8,7 @@ defmodule BeamFs.Config.Fetcher do
         raise "missing config :beam_fs, :freeswitch"
 
     %{
-      nodes: config[:nodes] || raise("missing :nodes in freeswitch config"),
-      cookie: String.to_atom(config[:cookie] || raise("missing :cookie in freeswitch config"))
+      nodes: config[:nodes] || raise("missing :nodes in freeswitch config")
     }
   end
 

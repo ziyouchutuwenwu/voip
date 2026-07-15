@@ -23,7 +23,8 @@ defmodule BeamFs.Events.Directory.Handler do
 
         user ->
           Logger.info("user found: #{user[:username]}, generating xml")
-          Xml.user(user[:username], user[:domain], user[:password])
+          domain = user[:domain] || "10.0.2.222"
+          Xml.user(user[:username], domain, user[:password])
       end
 
     Logger.info("directory fetch response length: #{byte_size(result)}")

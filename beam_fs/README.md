@@ -17,9 +17,14 @@ id 要和 username 对应
 pjsua --local-port=6000 \
   --id sip:1000@10.0.2.222 \
   --registrar sip:10.0.2.222:5060 \
-  --realm 10.0.2.222 --username 1000 --password 123456 \
-  --auto-answer 200 \
-  --null-audio
+  --realm 10.0.2.222 \
+  --username 1000 --password 123456
+
+pjsua --local-port=6001 \
+  --id sip:1001@10.0.2.222 \
+  --registrar sip:10.0.2.222:5060 \
+  --realm 10.0.2.222 \
+  --username 1001 --password 123456
 ```
 
 打电话

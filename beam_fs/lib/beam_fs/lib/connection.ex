@@ -49,12 +49,10 @@ defmodule BeamFs.Lib.Connection do
   defp init() do
     Process.flag(:trap_exit, true)
 
-    %{nodes: nodes, cookie: cookie} = BeamFs.Config.Fetcher.fs_nodes()
+    %{nodes: nodes} = BeamFs.Config.Fetcher.fs_nodes()
 
     intervals = Map.new(nodes, fn n -> {n, 5_000} end)
     state = %__MODULE__{nodes: nodes, reconnect_intervals: intervals}
-
-    :erlang.set_cookie(node(), cookie)
     Enum.each(nodes, fn n -> send(self(), {:connect, n}) end)
     loop(state)
   end
