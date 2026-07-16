@@ -14,16 +14,16 @@ defmodule Demo do
   end
 
   def ivr() do
-    Cmd.ivr_call("1001",
-      say: "按1转销售，按2转客服",
+    Cmd.ivr_call("2222",
+      play: "/usr/local/share/freeswitch/sounds/ivr-prompt.wav",
       dtmf_map: %{
-        "1" => {:play, "/sounds/intro.wav"},
-        "2" => {:transfer, "1002"}
+        "1" => {:play, "/usr/local/share/freeswitch/sounds/ivr-prompt.wav"},
+        "2" => {:transfer, "3333"}
       }
     )
   end
 
   def call() do
-    Cmd.call("1000")
+    Cmd.call("1111")
   end
 end

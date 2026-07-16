@@ -88,11 +88,21 @@ defmodule BeamFs.Events.EventHandler do
     Registry.register(BeamFs.EventRegistry, {event, uuid}, nil)
   end
 
+  def watch_any(event) do
+    Registry.register(BeamFs.EventRegistry, {event, :any}, nil)
+  end
+
   defp notify_watcher(event, data) do
     uuid = get_str(data, "Unique-ID")
     key = {event, uuid}
 
     Registry.dispatch(BeamFs.EventRegistry, key, fn entries ->
+      for {pid, _} <- entries do
+        send(pid, {event, data})
+      end
+    end)
+
+    Registry.dispatch(BeamFs.EventRegistry, {event, :any}, fn entries ->
       for {pid, _} <- entries do
         send(pid, {event, data})
       end
