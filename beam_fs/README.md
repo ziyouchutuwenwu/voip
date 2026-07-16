@@ -1,4 +1,8 @@
-# 说明
+# readme
+
+## 说明
+
+实现的是 freeswitch 的逻辑转到 elixir
 
 ## 用法
 

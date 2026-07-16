@@ -10,7 +10,7 @@ defmodule BeamFs.Lib.Connection.Supervisor do
     children = [
       %{
         id: BeamFs.Lib.Connection,
-        start: {BeamFs.Lib.Connection, :start_link, []},
+        start: {BeamFs.Lib.Connection, :start_link, [[]]},
         type: :worker,
         restart: :permanent,
         shutdown: 500

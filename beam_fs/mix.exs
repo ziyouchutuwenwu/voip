@@ -13,7 +13,7 @@ defmodule BeamFs.MixProject do
 
   def application do
     [
-      mod: {BeamFsApp.Application, []},
+      mod: {BeamFs.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -21,7 +21,6 @@ defmodule BeamFs.MixProject do
   defp deps do
     [
       {:xml_builder, "~> 2.1"},
-      {:highlander, "~> 0.2.1"},
       {:jason, "~> 1.4"}
     ]
   end

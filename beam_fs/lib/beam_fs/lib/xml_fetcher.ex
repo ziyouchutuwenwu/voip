@@ -6,7 +6,7 @@ defmodule BeamFs.Lib.XmlFetcher do
     directory: BeamFs.Events.Directory.Handler
   }
 
-  def handle(section, tag, key, value, uuid, params \\ []) do
+  def handle(node, section, tag, key, value, uuid, params \\ []) do
     section_atom = if is_atom(section), do: section, else: String.to_atom(section)
 
     result =
@@ -18,10 +18,16 @@ defmodule BeamFs.Lib.XmlFetcher do
           apply(mod, :fetch, [tag, key, value, params])
       end
 
-    BeamFs.Lib.Connection.fetch_reply(uuid, result)
+    Logger.info(
+      "fetch_reply to #{inspect(node)} uuid=#{inspect(uuid)} size=#{byte_size(result)}"
+    )
+
+    send({:fs, node}, {:fetch_reply, uuid, result})
+    :ok
   rescue
     e ->
       Logger.error("fetch handler error: #{inspect(e)}")
-      BeamFs.Lib.Connection.fetch_reply(uuid, "")
+      send({:fs, node}, {:fetch_reply, uuid, ""})
+      :ok
   end
 end

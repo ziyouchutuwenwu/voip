@@ -1,6 +1,4 @@
 defmodule Cmd do
-  @cache_key {:cmd, :domain}
-
   alias BeamFs.Lib.Connection
 
   def call(target, opts \\ []) do
@@ -54,20 +52,9 @@ defmodule Cmd do
   def registrations, do: Connection.api("show", "registrations")
 
   defp domain! do
-    case :persistent_term.get(@cache_key, nil) do
-      nil -> fetch_and_cache!()
-      d -> d
-    end
-  end
-
-  defp fetch_and_cache! do
     case Connection.api("global_getvar", "domain") do
-      {:ok, d} when is_binary(d) ->
-        d = String.trim(d)
-        :persistent_term.put(@cache_key, d)
-        d
-      _ ->
-        raise "failed to get domain from FreeSWITCH"
+      {:ok, d} when is_binary(d) -> String.trim(d)
+      _ -> raise "failed to get domain from FreeSWITCH"
     end
   end
 

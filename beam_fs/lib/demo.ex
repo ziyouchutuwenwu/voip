@@ -10,6 +10,6 @@ defmodule Demo do
 
   def call() do
     BeamFs.Lib.Api.show_channels()
-    BeamFs.Lib.Connection.api("uuid_answer", "<通道UUID>")
+    BeamFs.Lib.Api.api("uuid_answer", "<通道UUID>")
   end
 end

@@ -3,19 +3,19 @@ defmodule BeamFs.Lib.Connection do
 
   @max_reconnect_interval 60_000
 
-  defstruct nodes: [],
-            connected: MapSet.new(),
-            reconnect_timers: %{},
-            reconnect_intervals: %{}
+  defstruct node: nil,
+            connected: false,
+            reconnect_timer: nil,
+            reconnect_interval: 5_000
 
-  def start_link() do
+  def start_link(_opts) do
     pid = spawn_link(fn -> init() end)
     Process.register(pid, __MODULE__)
     {:ok, pid}
   end
 
   def connected?, do: call(:connected?)
-  def connected_nodes, do: call(:connected_nodes)
+  def connected_node, do: call(:connected_node)
 
   def api(cmd, args \\ "", opts \\ []) do
     call({:api, cmd, args, opts})
@@ -33,10 +33,6 @@ defmodule BeamFs.Lib.Connection do
     call(:subscribe_events)
   end
 
-  def fetch_reply(uuid, xml_string) do
-    send(__MODULE__, {:fetch_reply, uuid, xml_string})
-  end
-
   defp call(msg) do
     ref = make_ref()
     send(__MODULE__, {:call, {self(), ref}, msg})
@@ -46,51 +42,51 @@ defmodule BeamFs.Lib.Connection do
     end
   end
 
-  defp init() do
+  defp init do
     Process.flag(:trap_exit, true)
-
-    %{nodes: nodes} = BeamFs.Config.Fetcher.fs_nodes()
-
-    intervals = Map.new(nodes, fn n -> {n, 5_000} end)
-    state = %__MODULE__{nodes: nodes, reconnect_intervals: intervals}
-    Enum.each(nodes, fn n -> send(self(), {:connect, n}) end)
+    node = BeamFs.Config.Fetcher.fs_node()
+    state = %__MODULE__{node: node}
+    send(self(), {:connect})
     loop(state)
   end
 
   defp loop(state) do
     receive do
       {:call, {pid, ref}, :connected?} ->
-        send(pid, {ref, MapSet.size(state.connected) > 0})
-        loop(state)
-
-      {:call, {pid, ref}, :connected_nodes} ->
         send(pid, {ref, state.connected})
         loop(state)
 
+      {:call, {pid, ref}, :connected_node} ->
+        send(pid, {ref, state.node})
+        loop(state)
+
       {:call, {pid, ref}, {:api, cmd, args, opts}} ->
-        state = handle_api(pid, ref, cmd, args, opts, state)
+        handle_api(pid, ref, cmd, args, opts, state)
         loop(state)
 
       {:call, {pid, ref}, {:bgapi, cmd, args, opts}} ->
-        state = handle_bgapi(pid, ref, cmd, args, opts, state)
+        handle_bgapi(pid, ref, cmd, args, opts, state)
         loop(state)
 
       {:call, {pid, ref}, {:bind, section}} ->
-        results = Enum.map(state.nodes, fn n -> do_bind(n, section) end)
-        send(pid, {ref, results})
+        result = do_bind(state.node, section)
+        send(pid, {ref, result})
         loop(state)
 
       {:call, {pid, ref}, :subscribe_events} ->
-        results = Enum.map(state.nodes, fn n -> do_subscribe_events(n) end)
-        send(pid, {ref, results})
+        result = do_subscribe_events(state.node)
+        send(pid, {ref, result})
         loop(state)
 
-      {:connect, node} ->
-        state = handle_connect(node, state)
+      {:connect} ->
+        state = handle_connect(state)
         loop(state)
 
-      {:nodedown, node} ->
-        state = handle_nodedown(node, state)
+      {:nodedown, node} when node == state.node ->
+        state = handle_nodedown(state)
+        loop(state)
+
+      {:nodedown, _other} ->
         loop(state)
 
       {:event, _data} = msg ->
@@ -102,8 +98,11 @@ defmodule BeamFs.Lib.Connection do
           "incoming fetch: section=#{inspect(section)} tag=#{inspect(tag)} key=#{inspect(key)} value=#{inspect(value)} uuid=#{inspect(uuid)} params=#{inspect(params)}"
         )
 
+        node = state.node
+
         spawn(fn ->
-          BeamFs.Lib.XmlFetcher.handle(section, tag, key, value, uuid, params)
+          result = BeamFs.Lib.XmlFetcher.handle(node, section, tag, key, value, uuid, params)
+          send({:fs, node}, {:fetch_reply, uuid, result})
         end)
 
         loop(state)
@@ -114,117 +113,91 @@ defmodule BeamFs.Lib.Connection do
       {:bgerror, _job_uuid, _error} ->
         loop(state)
 
-      {:fetch_reply, uuid, xml_string} ->
-        node = pick_connected(state)
-
-        Logger.info(
-          "fetch_reply to #{inspect(node)} uuid=#{inspect(uuid)} size=#{byte_size(xml_string)}"
-        )
-
-        if node, do: send({:fs, node}, {:fetch_reply, uuid, xml_string})
-        loop(state)
-
       msg ->
         Logger.debug("unhandled: #{inspect(msg)}")
         loop(state)
     end
   end
 
-  defp pick_connected(state) do
-    Enum.find(state.nodes, fn n -> MapSet.member?(state.connected, n) end)
-  end
-
   defp handle_api(pid, ref, cmd, args, opts, state) do
-    case pick_connected(state) do
-      nil ->
-        send(pid, {ref, {:error, :not_connected}})
+    if state.connected do
+      timeout = Keyword.get(opts, :timeout, 10_000)
+      send({:fs, state.node}, {:api, String.to_atom(cmd), args})
 
-      node ->
-        timeout = Keyword.get(opts, :timeout, 10_000)
-        send({:fs, node}, {:api, String.to_atom(cmd), args})
-
-        receive do
-          {:ok, result} -> send(pid, {ref, {:ok, result}})
-          {:error, reason} -> send(pid, {ref, {:error, reason}})
-        after
-          timeout -> send(pid, {ref, {:error, :timeout}})
-        end
+      receive do
+        {:ok, result} -> send(pid, {ref, {:ok, result}})
+        {:error, reason} -> send(pid, {ref, {:error, reason}})
+      after
+        timeout -> send(pid, {ref, {:error, :timeout}})
+      end
+    else
+      send(pid, {ref, {:error, :not_connected}})
     end
 
-    state
+    :ok
   end
 
   defp handle_bgapi(pid, ref, cmd, args, opts, state) do
-    case pick_connected(state) do
-      nil ->
-        send(pid, {ref, {:error, :not_connected}})
+    if state.connected do
+      timeout = Keyword.get(opts, :timeout, 60_000)
+      send({:fs, state.node}, {:bgapi, String.to_atom(cmd), args})
 
-      node ->
-        timeout = Keyword.get(opts, :timeout, 60_000)
-        send({:fs, node}, {:bgapi, String.to_atom(cmd), args})
-
-        receive do
-          {:ok, result} -> send(pid, {ref, {:ok, result}})
-          {:error, reason} -> send(pid, {ref, {:error, reason}})
-        after
-          timeout -> send(pid, {ref, {:error, :timeout}})
-        end
+      receive do
+        {:ok, result} -> send(pid, {ref, {:ok, result}})
+        {:error, reason} -> send(pid, {ref, {:error, reason}})
+      after
+        timeout -> send(pid, {ref, {:error, :timeout}})
+      end
+    else
+      send(pid, {ref, {:error, :not_connected}})
     end
 
-    state
+    :ok
   end
 
-  defp handle_connect(node, state) do
-    interval = Map.get(state.reconnect_intervals, node, 5_000)
-
-    case :net_kernel.connect_node(node) do
+  defp handle_connect(state) do
+    case :net_kernel.connect_node(state.node) do
       true ->
-        Logger.info("connected to freeswitch node: #{node}")
-        :erlang.monitor_node(node, true)
-        dialplan_bind = do_bind(node, :dialplan)
+        Logger.info("connected to freeswitch node: #{state.node}")
+        :erlang.monitor_node(state.node, true)
+
+        dialplan_bind = do_bind(state.node, :dialplan)
         Logger.info("dialplan bind result: #{inspect(dialplan_bind)}")
-        dir_bind = do_bind(node, :directory)
+
+        dir_bind = do_bind(state.node, :directory)
         Logger.info("directory bind result: #{inspect(dir_bind)}")
-        sub_result = do_subscribe_events(node)
+
+        sub_result = do_subscribe_events(state.node)
         Logger.info("subscribe events result: #{inspect(sub_result)}")
 
         %{
           state
-          | connected: MapSet.put(state.connected, node),
-            reconnect_timers: Map.delete(state.reconnect_timers, node),
-            reconnect_intervals: Map.put(state.reconnect_intervals, node, 5_000)
+          | connected: true,
+            reconnect_interval: 5_000
         }
 
       _ ->
-        Logger.warning("failed to connect to #{node}, retrying in #{div(interval, 1000)}s...")
-        next_interval = min(interval * 2, @max_reconnect_interval)
-        timer = Process.send_after(self(), {:connect, node}, interval)
+        interval = state.reconnect_interval
 
-        %{
-          state
-          | connected: MapSet.delete(state.connected, node),
-            reconnect_timers: Map.put(state.reconnect_timers, node, timer),
-            reconnect_intervals: Map.put(state.reconnect_intervals, node, next_interval)
-        }
+        Logger.warning(
+          "failed to connect to #{state.node}, retrying in #{div(interval, 1000)}s..."
+        )
+
+        next_interval = min(interval * 2, @max_reconnect_interval)
+        timer = Process.send_after(self(), {:connect}, interval)
+
+        %{state | reconnect_timer: timer, reconnect_interval: next_interval}
     end
   end
 
-  defp handle_nodedown(node, state) do
-    if MapSet.member?(state.connected, node) do
-      Logger.warning("freeswitch node #{node} disconnected, reconnecting...")
-      :erlang.monitor_node(node, false)
+  defp handle_nodedown(state) do
+    Logger.warning("freeswitch node #{state.node} disconnected, reconnecting...")
+    :erlang.monitor_node(state.node, false)
 
-      interval = Map.get(state.reconnect_intervals, node, 5_000)
-      timer = Process.send_after(self(), {:connect, node}, interval)
+    interval = state.reconnect_interval
+    timer = Process.send_after(self(), {:connect}, interval)
 
-      %{
-        state
-        | connected: MapSet.delete(state.connected, node),
-          reconnect_timers: Map.put(state.reconnect_timers, node, timer)
-      }
-    else
-      state
-    end
+    %{state | connected: false, reconnect_timer: timer}
   end
 
   defp do_bind(node, section) do
@@ -239,12 +212,10 @@ defmodule BeamFs.Lib.Connection do
   end
 
   defp do_subscribe_events(node) do
-    # Register this process as the event handler (sets listener->event_process.pid)
     send({:fs, node}, :register_event_handler)
 
     receive do
       :ok ->
-        # Subscribe to specific events
         send(
           {:fs, node},
           {:setevent, :CHANNEL_CREATE, :CHANNEL_ANSWER, :CHANNEL_HANGUP, :CHANNEL_BRIDGE,

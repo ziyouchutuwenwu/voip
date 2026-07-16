@@ -1,4 +1,4 @@
-defmodule BeamFs.Events.Call.Manager do
+defmodule BeamFs.Lib.Command do
   alias BeamFs.Lib.Connection
 
   def originate(from, to, opts \\ []) do

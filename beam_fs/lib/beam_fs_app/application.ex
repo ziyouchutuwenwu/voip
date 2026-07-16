@@ -1,13 +1,13 @@
-defmodule BeamFsApp.Application do
+defmodule BeamFs.Application do
   use Application
 
   @impl true
   def start(_type, _args) do
     children = [
-      {Highlander, BeamFs.Lib.Connection.Supervisor},
+      BeamFs.Lib.Connection.Supervisor,
     ]
 
-    opts = [strategy: :one_for_one, name: Demo.Supervisor]
+    opts = [strategy: :one_for_one, name: BeamFs.Supervisor]
     Supervisor.start_link(children, opts)
   end
 end
