@@ -219,7 +219,7 @@ defmodule BeamFs.Lib.Connection do
         send(
           {:fs, node},
           {:setevent, :CHANNEL_CREATE, :CHANNEL_ANSWER, :CHANNEL_HANGUP, :CHANNEL_BRIDGE,
-           :CHANNEL_DESTROY, :CUSTOM, :"sofia::register", :"sofia::unregister"}
+           :CHANNEL_DESTROY, :DTMF, :CUSTOM, :"sofia::register", :"sofia::unregister"}
         )
 
         receive do

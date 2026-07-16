@@ -14,12 +14,17 @@ defmodule BeamFs.Events.EventHandler do
         handle_channel_create(data)
       name == "CHANNEL_ANSWER" ->
         handle_channel_answer(data)
+        notify_watcher(:answer, data)
       name == "CHANNEL_HANGUP" ->
         handle_channel_hangup(data)
       name == "CHANNEL_BRIDGE" ->
         handle_channel_bridge(data)
       name == "CHANNEL_DESTROY" ->
         handle_channel_destroy(data)
+        notify_watcher(:hangup, data)
+
+      name == "DTMF" ->
+        notify_watcher(:dtmf, data)
       true ->
         Logger.debug("unhandled fs event: #{inspect(name)} subclass=#{inspect(subclass)}")
     end
@@ -77,5 +82,20 @@ defmodule BeamFs.Events.EventHandler do
 
   defp handle_channel_destroy(_data) do
     :ok
+  end
+
+  def watch(event, uuid) do
+    Registry.register(BeamFs.EventRegistry, {event, uuid}, nil)
+  end
+
+  defp notify_watcher(event, data) do
+    uuid = get_str(data, "Unique-ID")
+    key = {event, uuid}
+
+    Registry.dispatch(BeamFs.EventRegistry, key, fn entries ->
+      for {pid, _} <- entries do
+        send(pid, {event, data})
+      end
+    end)
   end
 end

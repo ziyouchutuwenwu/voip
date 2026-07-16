@@ -1,15 +1,29 @@
 defmodule Demo do
+  require Logger
   # iex --name aaa@127.0.0.1 --cookie 123456 -S mix
-  def show_register do
-    # BeamFs.Lib.Connection.connected?()
-    # BeamFs.Lib.Connection.connected_nodes()
-    # BeamFs.Lib.Api.status()
+  def info do
+    connected = BeamFs.Lib.Connection.connected?()
+    Logger.debug("connected #{inspect(connected)}")
+
+    status = BeamFs.Lib.Api.status()
+    Logger.debug("status #{inspect(status)}")
+  end
+
+  def registration do
     BeamFs.Lib.Api.show_registrations()
-    # BeamFs.Lib.Api.show_channels()
+  end
+
+  def ivr() do
+    Cmd.ivr_call("1001",
+      say: "按1转销售，按2转客服",
+      dtmf_map: %{
+        "1" => {:play, "/sounds/intro.wav"},
+        "2" => {:transfer, "1002"}
+      }
+    )
   end
 
   def call() do
-    BeamFs.Lib.Api.show_channels()
-    BeamFs.Lib.Api.api("uuid_answer", "<通道UUID>")
+    Cmd.call("1000")
   end
 end

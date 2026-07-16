@@ -4,6 +4,7 @@ defmodule BeamFs.Application do
   @impl true
   def start(_type, _args) do
     children = [
+      {Registry, keys: :duplicate, name: BeamFs.EventRegistry},
       BeamFs.Lib.Connection.Supervisor,
     ]
 
